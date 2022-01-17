@@ -232,8 +232,7 @@ def combine_partial_results(partial_results) -> List:
     for partial_result in partial_results:
         records.extend(partial_result)
     records = list(sorted(records, key=lambda x: x["id"]))
-    preds = [x["pred"] for x in records]
-    return preds
+    return [x["pred"] for x in records]
 
 
 def gather_results_from_each_node(num_replicas, save_dir, timeout) -> List[Dict[str, List]]:
@@ -251,8 +250,7 @@ def gather_results_from_each_node(num_replicas, save_dir, timeout) -> List[Dict[
             return json_data
         except JSONDecodeError:
             continue
-    else:
-        raise TimeoutError("Rank 0 gave up on waiting for other processes")
+    raise TimeoutError("Rank 0 gave up on waiting for other processes")
     # Unreachable
 
 

@@ -103,15 +103,8 @@ class TestTheRest(TestCasePlus):
         _dump_articles(input_file_name, text["en"])
         _dump_articles(reference_path, text["de"])
         task = "translation_en_to_de" if model == T5_TINY else "summarization"
-        testargs = f"""
-            run_eval_search.py
-            {model}
-            {str(input_file_name)}
-            {str(output_file_name)}
-            --score_path {score_path}
-            --reference_path {reference_path}
-            --task {task}
-            """.split()
+        testargs = f'\x1f            run_eval_search.py\x1f            {model}\x1f            {input_file_name}\x1f            {output_file_name}\x1f            --score_path {score_path}\x1f            --reference_path {reference_path}\x1f            --task {task}\x1f            '.split()
+
         testargs.extend(["--search", "num_beams=1:2 length_penalty=0.9:1.0"])
 
         with patch.object(sys, "argv", testargs):
