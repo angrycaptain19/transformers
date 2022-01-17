@@ -92,24 +92,28 @@ def train(args, train_dataset, model, tokenizer, train_highway=False):
                 "params": [
                     p
                     for n, p in model.named_parameters()
-                    if ("highway" in n) and (not any(nd in n for nd in no_decay))
+                    if "highway" in n and all(nd not in n for nd in no_decay)
                 ],
                 "weight_decay": args.weight_decay,
             },
             {
                 "params": [
-                    p for n, p in model.named_parameters() if ("highway" in n) and (any(nd in n for nd in no_decay))
+                    p
+                    for n, p in model.named_parameters()
+                    if ("highway" in n) and (any(nd in n for nd in no_decay))
                 ],
                 "weight_decay": 0.0,
             },
         ]
+
     else:
         optimizer_grouped_parameters = [
             {
                 "params": [
                     p
                     for n, p in model.named_parameters()
-                    if ("highway" not in n) and (not any(nd in n for nd in no_decay))
+                    if "highway" not in n
+                    and all(nd not in n for nd in no_decay)
                 ],
                 "weight_decay": args.weight_decay,
             },
@@ -117,11 +121,13 @@ def train(args, train_dataset, model, tokenizer, train_highway=False):
                 "params": [
                     p
                     for n, p in model.named_parameters()
-                    if ("highway" not in n) and (any(nd in n for nd in no_decay))
+                    if ("highway" not in n)
+                    and (any(nd in n for nd in no_decay))
                 ],
                 "weight_decay": 0.0,
             },
         ]
+
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total

@@ -317,7 +317,7 @@ def hans_convert_examples_to_features(
             return_overflowing_tokens=True,
         )
 
-        label = label_map[example.label] if example.label in label_map else 0
+        label = label_map.get(example.label, 0)
 
         pairID = int(example.pairID)
 

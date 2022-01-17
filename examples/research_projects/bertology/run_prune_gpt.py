@@ -37,8 +37,8 @@ def save_model(model, dirpath):
 
 def entropy(p, unlogit=False):
     """ Compute the entropy of a probability distribution """
-    exponent = 2
     if unlogit:
+        exponent = 2
         p = torch.pow(p, exponent)
     plogp = p * torch.log(p)
     plogp[p == 0] = 0
@@ -77,7 +77,7 @@ def compute_heads_importance(
 
     tot_tokens = 0.0
     total_loss = 0.0
-    for step, inputs in enumerate(tqdm(eval_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])):
+    for inputs in tqdm(eval_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0]):
         inputs = tuple(t.to(args.device) for t in inputs)
         (input_ids,) = inputs
 
@@ -141,7 +141,7 @@ def mask_heads(args, model, eval_dataloader):
     num_to_mask = max(1, int(new_head_mask.numel() * args.masking_amount))
 
     current_score = original_score
-    while current_score >= original_score * args.masking_threshold:
+    while current_score >= current_score * args.masking_threshold:
         head_mask = new_head_mask.clone().detach()  # save current head mask
         # heads from least important to most - keep only not-masked heads
         head_importance[head_mask == 0.0] = float("Inf")
@@ -193,9 +193,11 @@ def prune_heads(args, model, eval_dataloader, head_mask):
     original_time = datetime.now() - before_time
 
     original_num_params = sum(p.numel() for p in model.parameters())
-    heads_to_prune = dict(
-        (layer, (1 - head_mask[layer].long()).nonzero().squeeze().tolist()) for layer in range(len(head_mask))
-    )
+    heads_to_prune = {
+        layer: (1 - head_mask[layer].long()).nonzero().squeeze().tolist()
+        for layer in range(len(head_mask))
+    }
+
 
     for k, v in heads_to_prune.items():
         if isinstance(v, int):

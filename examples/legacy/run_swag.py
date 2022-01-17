@@ -105,7 +105,7 @@ def read_swag_examples(input_file, is_training=True):
     if is_training and lines[0][-1] != "label":
         raise ValueError("For training, the input file must contain a label column.")
 
-    examples = [
+    return [
         SwagExample(
             swag_id=line[2],
             context_sentence=line[4],
@@ -120,8 +120,6 @@ def read_swag_examples(input_file, is_training=True):
         )
         for line in lines[1:]  # we skip the line with the column names
     ]
-
-    return examples
 
 
 def convert_examples_to_features(examples, tokenizer, max_seq_length, is_training):
@@ -149,7 +147,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length, is_trainin
         start_ending_tokens = tokenizer.tokenize(example.start_ending)
 
         choices_features = []
-        for ending_index, ending in enumerate(example.endings):
+        for ending in example.endings:
             # We create a copy of the context tokens in order to be
             # able to shrink it according to ending_tokens
             context_tokens_choice = context_tokens[:]
@@ -265,11 +263,7 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
     all_segment_ids = torch.tensor(select_field(features, "segment_ids"), dtype=torch.long)
     all_label = torch.tensor([f.label for f in features], dtype=torch.long)
 
-    if evaluate:
-        dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label)
-    else:
-        dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label)
-
+    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label)
     if output_examples:
         return dataset, examples, features
     return dataset
@@ -294,11 +288,23 @@ def train(args, train_dataset, model, tokenizer):
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if all(nd not in n for nd in no_decay)
+            ],
             "weight_decay": args.weight_decay,
         },
-        {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
+        {
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": 0.0,
+        },
     ]
+
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
@@ -459,8 +465,8 @@ def evaluate(args, model, tokenizer, prefix=""):
         nb_eval_steps += 1
         nb_eval_examples += inputs["input_ids"].size(0)
 
-    eval_loss = eval_loss / nb_eval_steps
-    eval_accuracy = eval_accuracy / nb_eval_examples
+    eval_loss /= nb_eval_steps
+    eval_accuracy /= nb_eval_examples
     result = {"eval_loss": eval_loss, "eval_accuracy": eval_accuracy}
 
     output_eval_file = os.path.join(args.output_dir, "eval_results.txt")
@@ -642,10 +648,14 @@ def main():
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
-    config = AutoConfig.from_pretrained(args.config_name if args.config_name else args.model_name_or_path)
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
+    config = AutoConfig.from_pretrained(
+        args.config_name or args.model_name_or_path
     )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.tokenizer_name or args.model_name_or_path
+    )
+
     model = AutoModelForMultipleChoice.from_pretrained(
         args.model_name_or_path, from_tf=bool(".ckpt" in args.model_name_or_path), config=config
     )
@@ -685,16 +695,17 @@ def main():
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
-        if args.do_train:
-            checkpoints = [args.output_dir]
-        else:
-            # if do_train is False and do_eval is true, load model directly from pretrained.
-            checkpoints = [args.model_name_or_path]
-
+        checkpoints = [args.output_dir] if args.do_train else [args.model_name_or_path]
         if args.eval_all_checkpoints:
-            checkpoints = list(
-                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
-            )
+            checkpoints = [
+                os.path.dirname(c)
+                for c in sorted(
+                    glob.glob(
+                        args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True
+                    )
+                )
+            ]
+
 
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
@@ -708,7 +719,11 @@ def main():
             # Evaluate
             result = evaluate(args, model, tokenizer, prefix=global_step)
 
-            result = dict((k + ("_{}".format(global_step) if global_step else ""), v) for k, v in result.items())
+            result = {
+                k + ("_{}".format(global_step) if global_step else ""): v
+                for k, v in result.items()
+            }
+
             results.update(result)
 
     logger.info("Results: {}".format(results))

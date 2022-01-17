@@ -157,19 +157,7 @@ def get_dataset(
     cache_dir: Optional[str] = None,
 ):
     def _dataset(file_path, ref_path=None):
-        if args.line_by_line:
-            if ref_path is not None:
-                if not args.whole_word_mask or not args.mlm:
-                    raise ValueError("You need to set world whole masking and mlm to True for Chinese Whole Word Mask")
-                return LineByLineWithRefDataset(
-                    tokenizer=tokenizer,
-                    file_path=file_path,
-                    block_size=args.block_size,
-                    ref_path=ref_path,
-                )
-
-            return LineByLineTextDataset(tokenizer=tokenizer, file_path=file_path, block_size=args.block_size)
-        else:
+        if not args.line_by_line:
             return TextDataset(
                 tokenizer=tokenizer,
                 file_path=file_path,
@@ -177,6 +165,17 @@ def get_dataset(
                 overwrite_cache=args.overwrite_cache,
                 cache_dir=cache_dir,
             )
+        if ref_path is not None:
+            if not args.whole_word_mask or not args.mlm:
+                raise ValueError("You need to set world whole masking and mlm to True for Chinese Whole Word Mask")
+            return LineByLineWithRefDataset(
+                tokenizer=tokenizer,
+                file_path=file_path,
+                block_size=args.block_size,
+                ref_path=ref_path,
+            )
+
+        return LineByLineTextDataset(tokenizer=tokenizer, file_path=file_path, block_size=args.block_size)
 
     if evaluate:
         return _dataset(args.eval_data_file, args.eval_ref_file)
@@ -298,15 +297,14 @@ def main():
             plm_probability=data_args.plm_probability,
             max_span_length=data_args.max_span_length,
         )
+    elif data_args.mlm and data_args.whole_word_mask:
+        data_collator = DataCollatorForWholeWordMask(
+            tokenizer=tokenizer, mlm_probability=data_args.mlm_probability
+        )
     else:
-        if data_args.mlm and data_args.whole_word_mask:
-            data_collator = DataCollatorForWholeWordMask(
-                tokenizer=tokenizer, mlm_probability=data_args.mlm_probability
-            )
-        else:
-            data_collator = DataCollatorForLanguageModeling(
-                tokenizer=tokenizer, mlm=data_args.mlm, mlm_probability=data_args.mlm_probability
-            )
+        data_collator = DataCollatorForLanguageModeling(
+            tokenizer=tokenizer, mlm=data_args.mlm, mlm_probability=data_args.mlm_probability
+        )
 
     # Initialize our Trainer
     trainer = Trainer(

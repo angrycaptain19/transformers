@@ -297,7 +297,7 @@ class RaceProcessor(DataProcessor):
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
         examples = []
-        for (_, data_raw) in enumerate(lines):
+        for data_raw in lines:
             race_id = "%s-%s" % (set_type, data_raw["race_id"])
             article = data_raw["article"]
             for i in range(len(data_raw["answers"])):
@@ -347,7 +347,7 @@ class SynonymProcessor(DataProcessor):
     def _create_examples(self, lines: List[List[str]], type: str):
         """Creates examples for the training and dev sets."""
 
-        examples = [
+        return [
             InputExample(
                 example_id=line[0],
                 question="",  # in the swag dataset, the
@@ -359,8 +359,6 @@ class SynonymProcessor(DataProcessor):
             )
             for line in lines  # we skip the line with the column names
         ]
-
-        return examples
 
 
 class SwagProcessor(DataProcessor):
@@ -383,7 +381,6 @@ class SwagProcessor(DataProcessor):
             "For swag testing, the input file does not contain a label column. It can not be tested in current code"
             "setting!"
         )
-        return self._create_examples(self._read_csv(os.path.join(data_dir, "test.csv")), "test")
 
     def get_labels(self):
         """See base class."""
@@ -398,7 +395,7 @@ class SwagProcessor(DataProcessor):
         if type == "train" and lines[0][-1] != "label":
             raise ValueError("For training, the input file must contain a label column.")
 
-        examples = [
+        return [
             InputExample(
                 example_id=line[2],
                 question=line[5],  # in the swag dataset, the
@@ -410,8 +407,6 @@ class SwagProcessor(DataProcessor):
             )
             for line in lines[1:]  # we skip the line with the column names
         ]
-
-        return examples
 
 
 class ArcProcessor(DataProcessor):
@@ -437,8 +432,7 @@ class ArcProcessor(DataProcessor):
 
     def _read_json(self, input_file):
         with open(input_file, "r", encoding="utf-8") as fin:
-            lines = fin.readlines()
-            return lines
+            return fin.readlines()
 
     def _create_examples(self, lines, type):
         """Creates examples for the training and dev sets."""
@@ -522,7 +516,7 @@ def convert_examples_to_features(
         if ex_index % 10000 == 0:
             logger.info("Writing example %d of %d" % (ex_index, len(examples)))
         choices_inputs = []
-        for ending_idx, (context, ending) in enumerate(zip(example.contexts, example.endings)):
+        for context, ending in zip(example.contexts, example.endings):
             text_a = context
             if example.question.find("_") != -1:
                 # this is for cloze question
@@ -576,4 +570,4 @@ def convert_examples_to_features(
 
 
 processors = {"race": RaceProcessor, "swag": SwagProcessor, "arc": ArcProcessor, "syn": SynonymProcessor}
-MULTIPLE_CHOICE_TASKS_NUM_LABELS = {"race", 4, "swag", 4, "arc", 4, "syn", 5}
+MULTIPLE_CHOICE_TASKS_NUM_LABELS = {"race", "swag", "arc", 4, "syn", 5}

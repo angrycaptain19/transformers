@@ -96,8 +96,8 @@ class NERTransformer(BaseTransformer):
         if features[0].token_type_ids is not None:
             all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
         else:
-            all_token_type_ids = torch.tensor([0 for f in features], dtype=torch.long)
-            # HACK(we will not use this anymore soon)
+            all_token_type_ids = torch.tensor([0 for _ in features], dtype=torch.long)
+                # HACK(we will not use this anymore soon)
         all_label_ids = torch.tensor([f.label_ids for f in features], dtype=torch.long)
         return DataLoader(
             TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label_ids), batch_size=batch_size
@@ -123,7 +123,7 @@ class NERTransformer(BaseTransformer):
         preds = np.argmax(preds, axis=2)
         out_label_ids = np.concatenate([x["target"] for x in outputs], axis=0)
 
-        label_map = {i: label for i, label in enumerate(self.labels)}
+        label_map = dict(enumerate(self.labels))
         out_label_list = [[] for _ in range(out_label_ids.shape[0])]
         preds_list = [[] for _ in range(out_label_ids.shape[0])]
 
@@ -141,7 +141,7 @@ class NERTransformer(BaseTransformer):
             "f1": f1_score(out_label_list, preds_list),
         }
 
-        ret = {k: v for k, v in results.items()}
+        ret = dict(results)
         ret["log"] = results
         return ret, preds_list, out_label_list
 

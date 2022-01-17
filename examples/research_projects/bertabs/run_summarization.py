@@ -129,7 +129,7 @@ def format_summary(translation):
     into nicely formatted summaries.
     """
     raw_summary, _, _ = translation
-    summary = (
+    return (
         raw_summary.replace("[unused0]", "")
         .replace("[unused3]", "")
         .replace("[PAD]", "")
@@ -139,8 +139,6 @@ def format_summary(translation):
         .replace("[unused2]", "")
         .strip()
     )
-
-    return summary
 
 
 def format_rouge_scores(scores):
@@ -201,8 +199,7 @@ def build_data_iterator(args, tokenizer):
 
 
 def load_and_cache_examples(args, tokenizer):
-    dataset = CNNDMDataset(args.documents_dir)
-    return dataset
+    return CNNDMDataset(args.documents_dir)
 
 
 def collate(data, tokenizer, block_size, device):
@@ -212,7 +209,7 @@ def collate(data, tokenizer, block_size, device):
     all in memory. We output the data as a namedtuple to fit the original BertAbs's
     API.
     """
-    data = [x for x in data if not len(x[1]) == 0]  # remove empty_files
+    data = [x for x in data if len(x[1]) != 0]
     names = [name for name, _, _ in data]
     summaries = [" ".join(summary_list) for _, _, summary_list in data]
 
@@ -223,7 +220,7 @@ def collate(data, tokenizer, block_size, device):
     encoder_token_type_ids = compute_token_type_ids(encoded_stories, tokenizer.cls_token_id)
     encoder_mask = build_mask(encoded_stories, tokenizer.pad_token_id)
 
-    batch = Batch(
+    return Batch(
         document_names=names,
         batch_size=len(encoded_stories),
         src=encoded_stories.to(device),
@@ -231,8 +228,6 @@ def collate(data, tokenizer, block_size, device):
         mask_src=encoder_mask.to(device),
         tgt_str=summaries,
     )
-
-    return batch
 
 
 def decode_summary(summary_tokens, tokenizer):
